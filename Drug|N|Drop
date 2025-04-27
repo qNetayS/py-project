@@ -1,0 +1,108 @@
+import pygame # Импорт библиотеки pygame
+import random # Импорт модуля random
+from pygame_gui import UIManager # Импорт класса UIManager из библиотеки pygame_gui
+from pygame_gui.elements import UIPanel
+from tkinter import colorchooser # Импорт функции colorchooser из модуля tkinter
+pygame.init() # Инициализация библиотеки pygame
+screen_width = 800 # Ширина экрана
+screen_height = 600 # Высота экрана
+screen = pygame.display.set_mode((screen_width, screen_height)) # Создание экрана
+pygame.display.set_caption("Drag and Drop Objects")  # Установка заголовка окна
+#определение цветов
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+class GameObject: #установка самого объекта
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.width = 50
+        self.height = 50
+        self.dragging = False
+    def draw(self): # Метод отрисовки объекта
+        pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+objects = [] # Создание списка объектов
+manager = UIManager((screen_width, screen_height))  # Создание менеджера интерфейса
+def check_collision(obj1, obj2): # Функция проверки коллизии между двумя объектами
+    # Проверка пересечения областей объектов
+    if obj1.x < obj2.x + obj2.width and obj1.x + obj1.width > obj2.x and obj1.y < obj2.y + obj2.height and obj1.y + obj1.height > obj2.y:
+        return True
+    return False
+def check_boundaries(obj): # Функция проверки границ экрана для объекта
+    if obj.x < 0: # Проверка выхода за левую границу экрана
+        obj.x = 0
+    if obj.y < 0: # Проверка выхода за верхнюю границу экрана
+        obj.y = 0
+    if obj.x + obj.width > screen_width: # Проверка выхода за правую границу экрана
+        obj.x = screen_width - obj.width
+    if obj.y + obj.height > screen_height: # Проверка выхода за нижнюю границу экрана
+        obj.y = screen_height - obj.height
+def delete_object(obj): #удаление объекта
+    objects.remove(obj)
+
+def delete_object_at_pos(pos):  # Добавляем функцию удаления кубика по координатам
+    for obj in objects:
+        if obj.x < pos[0] < obj.x + obj.width and obj.y < pos[1] < obj.y + obj.height:
+            delete_object(obj)
+            break
+def average_color(color1, color2): # Функция нахождения среднего цвета между двумя цветами
+    return tuple((c1 + c2) // 2 for c1, c2 in zip(color1, color2)) # Вычисление среднего цвета по каждому каналу цвета
+running = True # Главный игровой цикл
+m_pressed = False
+while running:
+    screen.fill(WHITE) # Заполнение экрана белым цветом
+    for event in pygame.event.get(): # Обработка событий
+        if event.type == pygame.QUIT: # Обработка события закрытия окна
+            running = False # Остановка работы программы
+        if event.type == pygame.MOUSEBUTTONDOWN: # Обработка события нажатия кнопки мыши
+            for obj in objects: # Перебор всех объектов
+                if obj.x < event.pos[0] < obj.x + obj.width and obj.y < event.pos[1] < obj.y + obj.height: # Проверка попадания курсора в область объекта
+                    obj.dragging = True # Установка флага перетаскивания объекта
+        if event.type == pygame.MOUSEBUTTONUP:  # Обработка события отпускания кнопки мыши
+            for obj in objects:  # Перебор всех объектов
+                obj.dragging = False # Сброс флага перетаскивания объектов
+        if event.type == pygame.KEYDOWN: # Обработка события нажатия клавиши клавиатуры
+            if event.key == pygame.K_g: # Обработка нажатия клавиши "G" при которой включается палитра
+                x = random.randint(0, screen_width - 50) #Генерация случайной координаты x для нового объекта
+                y = random.randint(0, screen_height - 50)
+                color_dialog = colorchooser.askcolor()
+                new_color = color_dialog[0] if color_dialog[0] is not None else WHITE # Получение выбранного цвета или установка белого цвета по умолчанию
+                new_obj = GameObject(x, y, new_color) # Создание нового объекта
+                objects.append(new_obj) # Добавление нового объекта в список объектов
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_m:
+                m_pressed = True
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_m:
+                m_pressed = False
+        if pygame.mouse.get_pressed()[2]:  # Правая кнопка мыши
+            mouse_pos = pygame.mouse.get_pos()
+            delete_object_at_pos(mouse_pos)
+        manager.process_events(event) # Обработка событий интерфейсного менеджера
+    for i in range(len(objects)): # Перебор всех объектов для проверки коллизий и объединения
+        for j in range(i+1, len(objects)): # Перебор оставшихся объектов для проверки коллизий и объединения с текущим объектом i-го индекса
+            if check_collision(objects[i], objects[j]): # Проверка коллизии между двумя объектами
+                avg_color = average_color(objects[i].color, objects[j].color) # Вычисление среднего цвета между двумя цветами объектов i и j
+                new_obj = GameObject((objects[i].x + objects[j].x) // 2, (objects[i].y + objects[j].y) // 2, avg_color) # Создание нового объединенного объекта с усредненным цветом и положением по середине между объектами i и j
+                objects.append(new_obj) # Добавление нового объединенного объекта в список объектов
+                objects.remove(objects[i]) # Удаление первого объединенного объекта из списка
+                objects.remove(objects[j-1]) # Удаление второго объединенного объекта из списка (j-1 из-за удаления первого)
+                break
+    for obj in objects: # Перебор всех объектов для перетаскивания и отрисовки
+        if obj.dragging:
+            obj.x, obj.y = pygame.mouse.get_pos()
+            check_boundaries(obj)
+    for obj in objects:
+        if obj.x < pygame.mouse.get_pos()[0] < obj.x + obj.width and obj.y < pygame.mouse.get_pos()[1] < obj.y + obj.height:
+            obj.width = 60
+            obj.height = 60
+        else:
+            obj.width = 50
+            obj.height = 50
+    for obj in objects: # Перебор всех объектов для отрисовки на экране
+        obj.draw()
+    manager.update(1/60) # Обновление интерфейсного менеджера с частотой кадров
+    manager.draw_ui(screen) # Отображение интерфейсных элементов на экране
+    pygame.display.flip() # Обновление экрана
+pygame.quit() # Завершение работы программы и выход из игрового цикла
